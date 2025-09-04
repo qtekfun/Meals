@@ -14,6 +14,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Debug directory structure
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "Directory contents:"
+          ls -la
+          echo "Looking for gradlew:"
+          find . -name "gradlew" -type f 2>/dev/null || echo "gradlew not found"
+      
       - name: Set up JDK 17
         run: |
           sudo apt-get update
@@ -36,29 +45,34 @@ jobs:
           fi
       
       - name: Install dependencies
-        run: |
-          npm ci --prefer-offline --no-audit
-          cd MealsApp && npm ci --prefer-offline --no-audit
+        run: npm ci --prefer-offline --no-audit
       
       - name: Make gradlew executable
-        run: chmod +x MealsApp/android/gradlew
+        run: |
+          if [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+          else
+            echo "gradlew not found in android directory"
+            find . -name "gradlew" -type f
+            exit 1
+          fi
       
       - name: Clean build
         run: |
-          cd MealsApp/android
+          cd android
           ./gradlew clean
       
       - name: Build Debug APK
         run: |
-          cd MealsApp/android
+          cd android
           ./gradlew assembleDebug --no-daemon --stacktrace
       
       - name: Build Release APK
         run: |
-          cd MealsApp/android
+          cd android
           ./gradlew assembleRelease --no-daemon --stacktrace
       
       - name: List generated APKs
         run: |
           echo "Generated APK files:"
-          find MealsApp/android/app/build/outputs/apk -name "*.apk" -type f -exec ls -la {} \;
+          find . -name "*.apk" -type f -exec ls -la {} \;
