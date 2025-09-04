@@ -12,7 +12,9 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        run: |
+          git config --global --add safe.directory /github/workspace
+          git checkout ${GITHUB_SHA}
       
       - name: Debug directory structure
         run: |
@@ -25,27 +27,30 @@ jobs:
       
       - name: Set up JDK 17
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openjdk-17-jdk
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
           echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "PATH=$JAVA_HOME/bin:$PATH" >> $GITHUB_ENV
       
       - name: Set up Node.js 18
         run: |
-          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -
-          sudo apt-get install -y nodejs
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -qq
+          sudo apt-get install -y -qq nodejs
           node --version
           npm --version
       
       - name: Cache node modules
         run: |
           if [ -d "node_modules" ]; then
-            echo "Using existing node_modules"
+            echo "node_modules directory exists, checking if up to date..."
+            npm list --depth=0 || echo "Installing fresh dependencies"
           else
-            echo "Installing fresh dependencies"
+            echo "node_modules directory not found, will install fresh dependencies"
           fi
       
       - name: Install dependencies
-        run: npm ci --prefer-offline --no-audit
+        run: npm ci --prefer-offline --no-audit --no-fund
       
       - name: Make gradlew executable
         run: |
@@ -60,17 +65,17 @@ jobs:
       - name: Clean build
         run: |
           cd android
-          ./gradlew clean
+          ./gradlew clean --offline || ./gradlew clean
       
       - name: Build Debug APK
         run: |
           cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace --offline || ./gradlew assembleDebug --no-daemon --stacktrace
       
       - name: Build Release APK
         run: |
           cd android
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace --offline || ./gradlew assembleRelease --no-daemon --stacktrace
       
       - name: List generated APKs
         run: |
