@@ -1,31 +1,64 @@
-jobs:
 name: Android Build
+
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
 
-
+jobs:
   build:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout repository
-        run: git clone ${{ github.repository }} .
-      - name: Set up Node.js
-        run: |
-          curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-          apt-get install -y nodejs
-      - name: Install dependencies
-        run: npm install
-      - name: Set up JDK
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
         run: |
           sudo apt-get update
           sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+      
+      - name: Set up Node.js 18
+        run: |
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo bash -
+          sudo apt-get install -y nodejs
+          node --version
+          npm --version
+      
+      - name: Cache node modules
+        run: |
+          if [ -d "node_modules" ]; then
+            echo "Using existing node_modules"
+          else
+            echo "Installing fresh dependencies"
+          fi
+      
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          cd MealsApp && npm ci --prefer-offline --no-audit
+      
+      - name: Make gradlew executable
+        run: chmod +x MealsApp/android/gradlew
+      
+      - name: Clean build
+        run: |
+          cd MealsApp/android
+          ./gradlew clean
+      
       - name: Build Debug APK
-        run: npx react-native run-android --variant=debug
+        run: |
+          cd MealsApp/android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+      
       - name: Build Release APK
         run: |
-          cd android
-          ./gradlew assembleRelease
-        uses: actions/upload-artifact@v3
+          cd MealsApp/android
+          ./gradlew assembleRelease --no-daemon --stacktrace
+      
+      - name: List generated APKs
+        run: |
+          echo "Generated APK files:"
+          find MealsApp/android/app/build/outputs/apk -name "*.apk" -type f -exec ls -la {} \;
